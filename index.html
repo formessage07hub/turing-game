@@ -23,7 +23,7 @@
 
     <div class="input-area">
         <input type="text" id="messageInput" placeholder="Введите сообщение в чат..." autocomplete="off">
-        <button onclick="sendMessage()">ОТПРАВИТЬ</button>
+        <button onclick="sendMessage()">ОТПРАВИТЬ</button> <button onclick="resetGame()" style="background:#f59e0b; color:#0f172a; margin-left:10px;">НОВАЯ ИГРА</button>
     </div>
 
     <!-- Блок голосования (фишка игры) -->
@@ -83,6 +83,37 @@
                 alert("Ошибка! Вы приняли робота за человека. Игра продолжается. ❌");
             }
         }
+        
+        // Переопределяем получение сообщений: ловим и обычный чат, и команду сброса
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === "clear_chat") {
+        chatBox.innerHTML = `<p class="system-msg">[СИСТЕМА]: Комната допроса очищена ведущим. Начните диалог заново.</p>`;
+        statusDiv.innerText = "";
+    } 
+    else if (data.type === "system") {
+        chatBox.innerHTML += `<p class="system-msg">[СИСТЕМА]: ${data.text}</p>`;
+    } 
+    else if (data.type === "typing") {
+        statusDiv.innerText = `${data.sender} печатает сообщение...`;
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => { statusDiv.innerText = ""; }, 3000);
+    }
+    else if (data.type === "message") {
+        statusDiv.innerText = ""; 
+        chatBox.innerHTML += `<p><strong>${data.sender}:</strong> ${data.text}</p>`;
+    }
+    chatBox.scrollTop = chatBox.scrollHeight; 
+};
+
+function resetGame() {
+    if (confirm("Вы уверены, что хотите сбросить текущую игру для ВСЕХ участников?")) {
+        ws.send(JSON.stringify({ type: "reset" }));
+    }
+}
+
+
     </script>
 </body>
 </html>
