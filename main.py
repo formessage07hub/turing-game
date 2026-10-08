@@ -64,16 +64,14 @@ async def trigger_ai_behavior():
 async def websocket_endpoint(websocket: WebSocket):
     player_name = await manager.connect(websocket)
     
-    # Приветствуем игрока и сообщаем его скрытое имя
     await websocket.send_text(json.dumps({
         "type": "system", 
         "text": f"Вы подключились! В этой комнате ваше имя: {player_name}"
     }))
     
-    # Оповещаем остальных анонимно
     await manager.broadcast({
         "type": "system", 
-        "text": f"Новый участник вошел в комнату допроса."
+        "text": "Новый участник вошел в комнату допроса."
     })
 
     try:
@@ -81,17 +79,32 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
+            # НОВАЯ ЛОГИКА: если пришел сигнал сброса игры
+            if message_data.get("type") == "reset":
+                manager.player_counter = 1  # сбрасываем счетчик имен
+                # Очищаем имена у текущих подключений
+                for i, conn in enumerate(manager.active_connections, start=1):
+                    manager.player_map[conn] = f"Игрок {i}"
+                    manager.player_counter += 1
+                    # Отправляем каждому его новое имя индивидуально
+                    await conn.send_text(json.dumps({
+                        "type": "system", 
+                        "text": f"Игра сброшена! Ваше новое имя: Игрок {i}"
+                    }))
+                
+                # Оповещаем всех об очистке чата
+                await manager.broadcast({"type": "clear_chat"})
+                continue
+
             if message_data.get("type") == "message":
                 user_text = message_data.get("text", "")
                 
-                # Рассылаем всем сообщение от скрытого имени "Игрок Х"
                 await manager.broadcast({
                     "type": "message",
                     "sender": player_name,
                     "text": user_text
                 })
                 
-                # С шансом 60% запускаем ответ ИИ-игрока на реплику человека
                 if random.random() > 0.4:
                     asyncio.create_task(trigger_ai_behavior())
                     
@@ -101,6 +114,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "type": "system", 
             "text": "Один из участников покинул комнату."
         })
+
 
 # Главная страница (подгружает наш HTML-интерфейс)
 @app.get("/")
