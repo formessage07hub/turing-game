@@ -139,11 +139,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_message = {"type": "message", "sender": player_name, "text": user_text}
                 manager.chat_history.append(user_message)
                 await manager.broadcast(user_message)
-                
-                # С шансом 65% запускаем генерацию ответа живого ИИ
-                if random.random() > 0.35:
-                    asyncio.create_task(trigger_real_ai())
-                    
+                asyncio.create_task(trigger_real_ai())
+                   
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast({"type": "system", "text": "Один из участников покинул комнату."})
