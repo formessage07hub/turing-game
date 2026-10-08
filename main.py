@@ -78,8 +78,15 @@ async def trigger_real_ai():
                 "X-Title": "Turing Game MVP"
             }
         )
-        ai_text = response.choices.message.content.strip()
-        
+        # ai_text = response.choices.message.content.strip()
+        # Умная проверка: если OpenRouter вернул просто строку, берем её. Если объект — читаем через choices.
+        if isinstance(response, str):
+            ai_text = response.strip()
+        elif hasattr(response, 'choices') and response.choices:
+            ai_text = response.choices.message.content.strip()
+        else:
+            ai_text = str(response).strip()
+
         if ai_text.startswith("Игрок ИИ:"):
             ai_text = ai_text.replace("Игрок ИИ:", "").strip()
             
