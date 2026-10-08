@@ -2,39 +2,76 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Кто машина Тьюринга? MVP</title>
+    <title>Кто машина Тьюринга? Расследование</title>
     <style>
-        body { background-color: #0f172a; color: #38bdf8; font-family: monospace; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        body { background-color: #0f172a; color: #38bdf8; font-family: monospace; padding: 20px; display: flex; gap: 20px; height: 90vh; }
+        .main-container { flex: 3; display: flex; flex-direction: column; height: 100%; }
         #chat-box { flex: 1; border: 1px solid #38bdf8; padding: 15px; overflow-y: auto; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px; }
-        #status { color: #f59e0b; margin-bottom: 5px; height: 20px; }
+        #status { color: #f59e0b; margin-bottom: 5px; height: 20px; font-weight: bold; }
         .input-area { display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; background: #0f172a; border: 1px solid #38bdf8; color: #fff; border-radius: 5px; font-family: monospace; }
-        button { padding: 10px 20px; background: #38bdf8; color: #0f172a; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        input { flex: 1; padding: 12px; background: #0f172a; border: 1px solid #38bdf8; color: #fff; border-radius: 5px; font-family: monospace; font-size: 14px; }
+        button { padding: 10px 20px; background: #38bdf8; color: #0f172a; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; font-family: monospace; }
         button:hover { background: #0ea5e9; }
         .system-msg { color: #94a3b8; font-style: italic; }
-        .vote-panel { margin-top: 15px; border: 1px dashed #f59e0b; padding: 10px; border-radius: 5px; }
+        
+        /* Стили боковой панели расследования */
+        .investigation-panel { flex: 1; border: 1px solid #f59e0b; background-color: #1e293b; padding: 15px; border-radius: 5px; display: flex; flex-direction: column; color: #f59e0b; }
+        .suspect-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px; background: #0f172a; border-radius: 4px; border: 1px solid #334155; }
+        .vote-btn { padding: 5px 10px; font-size: 12px; background: #334155; color: #94a3b8; border: 1px solid #475569; }
+        .vote-btn.active-human { background: #16a34a; color: white; border-color: #22c55e; }
+        .vote-btn.active-ai { background: #dc2626; color: white; border-color: #ef4444; }
+        .submit-report-btn { width: 100%; margin-top: auto; padding: 12px; background: #f59e0b; color: #0f172a; font-size: 14px; }
+        .submit-report-btn:hover { background: #d97706; }
     </style>
 </head>
 <body>
 
-    <h2>🤖 ТЕРМИНАЛ: ТЕСТ ТЬЮРИНГА</h2>
-    <div id="chat-box"></div>
-    <div id="status"></div>
+    <div class="main-container">
+        <h2>🤖 ТЕРМИНАЛ: ТЕСТ ТЬЮРИНГА</h2>
+        <div id="chat-box"></div>
+        <div id="status"></div>
 
-    <div class="input-area">
-        <input type="text" id="messageInput" placeholder="Введите сообщение в чат..." autocomplete="off">
-        <button onclick="sendMessage()">ОТПРАВИТЬ</button> <button onclick="resetGame()" style="background:#f59e0b; color:#0f172a; margin-left:10px;">НОВАЯ ИГРА</button>
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Введите сообщение в чат..." autocomplete="off">
+            <button onclick="sendMessage()">ОТПРАВИТЬ</button>
+            <button onclick="resetGame()" style="background:#f59e0b; color:#0f172a;">НОВАЯ ИГРА</button>
+        </div>
     </div>
 
-    <!-- Блок голосования (фишка игры) -->
-    <div class="vote-panel">
-        👁️ <strong>Планшет расследования:</strong> Кто такой Игрок ИИ? 
-        <button onclick="vote('human')" style="background:#22c55e; color:white; margin-left:10px;">👨 Человек</button>
-        <button onclick="vote('ai')" style="background:#ef4444; color:white; margin-left:5px;">🤖 Робот</button>
+    <!-- Новая боковая панель расследования -->
+    <div class="investigation-panel">
+        <h3>👁️ ПЛАНШЕТ ДОПРОСА</h3>
+        <p style="font-size: 11px; color: #94a3b8; margin-top: 0;">Укажите статус каждого подозреваемого соперника:</p>
+        
+        <div id="suspects-list">
+            <!-- Список генерируется динамически через JavaScript -->
+            <div class="suspect-row">
+                <span>Игрок 1</span>
+                <div>
+                    <button class="vote-btn" id="p1-h" onclick="setSuspect('Игрок 1', 'human')">👨 Чел</button>
+                    <button class="vote-btn" id="p1-a" onclick="setSuspect('Игрок 1', 'ai')">🤖 Бот</button>
+                </div>
+            </div>
+            <div class="suspect-row">
+                <span>Игрок 2</span>
+                <div>
+                    <button class="vote-btn" id="p2-h" onclick="setSuspect('Игрок 2', 'human')">👨 Чел</button>
+                    <button class="vote-btn" id="p2-a" onclick="setSuspect('Игрок 2', 'ai')">🤖 Бот</button>
+                </div>
+            </div>
+            <div class="suspect-row">
+                <span>Игрок ИИ</span>
+                <div>
+                    <button class="vote-btn" id="pii-h" onclick="setSuspect('Игрок ИИ', 'human')">👨 Чел</button>
+                    <button class="vote-btn" id="pii-a" onclick="setSuspect('Игрок ИИ', 'ai')">🤖 Бот</button>
+                </div>
+            </div>
+        </div>
+
+        <button class="submit-report-btn" onclick="submitReport()">СДАТЬ ОТЧЕТ ТЬЮРИНГА</button>
     </div>
 
     <script>
-        // Автоматически подстраиваем протокол (ws:// или wss:// для безопасного соединения на Render)
         const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
         const ws = new WebSocket(protocol + window.location.host + "/ws");
         
@@ -43,24 +80,35 @@
         const msgInput = document.getElementById("messageInput");
 
         let typingTimeout;
+        
+        // Хранилище голосов игрока: { "Игрок 1": "human", "Игрок ИИ": "ai" }
+        let PlayerGuesses = {
+            "Игрок 1": null,
+            "Игрок 2": null,
+            "Игрок ИИ": null
+        };
 
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
-            if (data.type === "system") {
+            if (data.type === "clear_chat") {
+                chatBox.innerHTML = `<p class="system-msg">[СИСТЕМА]: Комната допроса очищена. Начните расследование заново.</p>`;
+                statusDiv.innerText = "";
+                resetVotingButtons();
+            } 
+            else if (data.type === "system") {
                 chatBox.innerHTML += `<p class="system-msg">[СИСТЕМА]: ${data.text}</p>`;
             } 
             else if (data.type === "typing") {
                 statusDiv.innerText = `${data.sender} печатает сообщение...`;
-                // Очищаем статус через 3 секунды, если сообщение задержится
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(() => { statusDiv.innerText = ""; }, 3000);
             }
             else if (data.type === "message") {
-                statusDiv.innerText = ""; // Сбрасываем статус печати
+                statusDiv.innerText = ""; 
                 chatBox.innerHTML += `<p><strong>${data.sender}:</strong> ${data.text}</p>`;
             }
-            chatBox.scrollTop = chatBox.scrollHeight; // Скролл вниз
+            chatBox.scrollTop = chatBox.scrollHeight; 
         };
 
         function sendMessage() {
@@ -71,49 +119,61 @@
             }
         }
 
-        // Позволяет отправлять сообщения по кнопке Enter
         msgInput.addEventListener("keydown", function(e) {
             if (e.key === "Enter") sendMessage();
         });
 
-        function vote(type) {
-            if(type === 'ai') {
-                alert("Правильно! Вы раскусили Машину Тьюринга! 🎉");
-            } else {
-                alert("Ошибка! Вы приняли робота за человека. Игра продолжается. ❌");
+        function resetGame() {
+            if (confirm("Вы уверены, что хотите сбросить текущую игру для ВСЕХ участников?")) {
+                ws.send(JSON.stringify({ type: "reset" }));
             }
         }
-        
-        // Переопределяем получение сообщений: ловим и обычный чат, и команду сброса
-ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    
-    if (data.type === "clear_chat") {
-        chatBox.innerHTML = `<p class="system-msg">[СИСТЕМА]: Комната допроса очищена ведущим. Начните диалог заново.</p>`;
-        statusDiv.innerText = "";
-    } 
-    else if (data.type === "system") {
-        chatBox.innerHTML += `<p class="system-msg">[СИСТЕМА]: ${data.text}</p>`;
-    } 
-    else if (data.type === "typing") {
-        statusDiv.innerText = `${data.sender} печатает сообщение...`;
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => { statusDiv.innerText = ""; }, 3000);
-    }
-    else if (data.type === "message") {
-        statusDiv.innerText = ""; 
-        chatBox.innerHTML += `<p><strong>${data.sender}:</strong> ${data.text}</p>`;
-    }
-    chatBox.scrollTop = chatBox.scrollHeight; 
-};
 
-function resetGame() {
-    if (confirm("Вы уверены, что хотите сбросить текущую игру для ВСЕХ участников?")) {
-        ws.send(JSON.stringify({ type: "reset" }));
-    }
-}
+        // Управление выбором на планшете голосования
+        function setSuspect(player, type) {
+            PlayerGuesses[player] = type;
+            
+            // Превращаем имена в ID для кнопок (убираем пробелы, ИИ переводим в англ суффикс для простоты кода)
+            let prefix = player.toLowerCase().replace(" ", "");
+            if(prefix === "игрокии") prefix = "pii";
+            if(prefix === "игрок1") prefix = "p1";
+            if(prefix === "игрок2") prefix = "p2";
 
+            const btnHuman = document.getElementById(`${prefix}-h`);
+            const btnAi = document.getElementById(`${prefix}-a`);
 
+            if (type === 'human') {
+                btnHuman.className = "vote-btn active-human";
+                btnAi.className = "vote-btn";
+            } else {
+                btnHuman.className = "vote-btn";
+                btnAi.className = "vote-btn active-ai";
+            }
+        }
+
+        function resetVotingButtons() {
+            PlayerGuesses = { "Игрок 1": null, "Игрок 2": null, "Игрок ИИ": null };
+            ['p1', 'p2', 'pii'].forEach(p => {
+                document.getElementById(`${p}-h`).className = "vote-btn";
+                document.getElementById(`${p}-a`).className = "vote-btn";
+            });
+        }
+
+        // Проверка финального отчета расследования
+        function submitReport() {
+            // Проверяем, на всех ли кликнул игрок
+            if (Object.values(PlayerGuesses).includes(null)) {
+                alert("Ошибка! Вы не определили статус для кого-то из игроков на планшете.");
+                return;
+            }
+
+            // Наша жесткая истина для MVP: Игрок ИИ — это единственный робот, остальные люди
+            if (PlayerGuesses["Игрок ИИ"] === "ai" && PlayerGuesses["Игрок 1"] === "human" && PlayerGuesses["Игрок 2"] === "human") {
+                alert("🏆 ФЕНОМЕНАЛЬНО! Ваш отчет верен! Вы успешно вычислили Машину Тьюринга и спасли человечество! 🎉");
+            } else {
+                alert("❌ ВАШ ОТЧЕТ ОТКЛОНЕН. В ваших расчетах ошибка. Внимательно перечитайте логи чата, робот где-то обвел вас вокруг пальца!");
+            }
+        }
     </script>
 </body>
 </html>
