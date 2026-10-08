@@ -66,7 +66,7 @@
         function sendMessage() {
             const text = msgInput.value.trim();
             if (text) {
-                ws.send(json.stringify({ type: "message", text: text }));
+                ws.send(JSON.stringify({ type: "message", text: text }));
                 msgInput.value = "";
             }
         }
