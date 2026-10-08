@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Кто машина Тьюринга? MVP</title>
+    <style>
+        body { background-color: #0f172a; color: #38bdf8; font-family: monospace; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        #chat-box { flex: 1; border: 1px solid #38bdf8; padding: 15px; overflow-y: auto; background-color: #1e293b; border-radius: 5px; margin-bottom: 10px; }
+        #status { color: #f59e0b; margin-bottom: 5px; height: 20px; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; background: #0f172a; border: 1px solid #38bdf8; color: #fff; border-radius: 5px; font-family: monospace; }
+        button { padding: 10px 20px; background: #38bdf8; color: #0f172a; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #0ea5e9; }
+        .system-msg { color: #94a3b8; font-style: italic; }
+        .vote-panel { margin-top: 15px; border: 1px dashed #f59e0b; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>🤖 ТЕРМИНАЛ: ТЕСТ ТЬЮРИНГА</h2>
+    <div id="chat-box"></div>
+    <div id="status"></div>
+
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="Введите сообщение в чат..." autocomplete="off">
+        <button onclick="sendMessage()">ОТПРАВИТЬ</button>
+    </div>
+
+    <!-- Блок голосования (фишка игры) -->
+    <div class="vote-panel">
+        👁️ <strong>Планшет расследования:</strong> Кто такой Игрок ИИ? 
+        <button onclick="vote('human')" style="background:#22c55e; color:white; margin-left:10px;">👨 Человек</button>
+        <button onclick="vote('ai')" style="background:#ef4444; color:white; margin-left:5px;">🤖 Робот</button>
+    </div>
+
+    <script>
+        // Автоматически подстраиваем протокол (ws:// или wss:// для безопасного соединения на Render)
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const ws = new WebSocket(protocol + window.location.host + "/ws");
+        
+        const chatBox = document.getElementById("chat-box");
+        const statusDiv = document.getElementById("status");
+        const msgInput = document.getElementById("messageInput");
+
+        let typingTimeout;
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === "system") {
+                chatBox.innerHTML += `<p class="system-msg">[СИСТЕМА]: ${data.text}</p>`;
+            } 
+            else if (data.type === "typing") {
+                statusDiv.innerText = `${data.sender} печатает сообщение...`;
+                // Очищаем статус через 3 секунды, если сообщение задержится
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => { statusDiv.innerText = ""; }, 3000);
+            }
+            else if (data.type === "message") {
+                statusDiv.innerText = ""; // Сбрасываем статус печати
+                chatBox.innerHTML += `<p><strong>${data.sender}:</strong> ${data.text}</p>`;
+            }
+            chatBox.scrollTop = chatBox.scrollHeight; // Скролл вниз
+        };
+
+        function sendMessage() {
+            const text = msgInput.value.trim();
+            if (text) {
+                ws.send(json.stringify({ type: "message", text: text }));
+                msgInput.value = "";
+            }
+        }
+
+        // Позволяет отправлять сообщения по кнопке Enter
+        msgInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        function vote(type) {
+            if(type === 'ai') {
+                alert("Правильно! Вы раскусили Машину Тьюринга! 🎉");
+            } else {
+                alert("Ошибка! Вы приняли робота за человека. Игра продолжается. ❌");
+            }
+        }
+    </script>
+</body>
+</html>
