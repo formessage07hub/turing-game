@@ -78,18 +78,26 @@ async def trigger_real_ai():
                 "X-Title": "Turing Game MVP"
             }
         )
-        # ai_text = response.choices.message.content.strip()
-        # Умная проверка: если OpenRouter вернул просто строку, берем её. Если объект — читаем через choices.
-        if isinstance(response, str):
-            ai_text = response.strip()
-        elif hasattr(response, 'choices') and response.choices:
-            ai_text = response.choices.message.content.strip()
-        else:
+        # СВЕРХНАДЕЖНЫЙ ПАРСИНГ ОТВЕТА OPENROUTER:
+        ai_text = ""
+        # Вариант 1: Стандартный объект OpenAI SDK
+        if hasattr(response, 'choices') and response.choices:
+            ai_text = response.choices[0].message.content
+        # Вариант 2: Если OpenRouter вернул словарь (dict)
+        elif isinstance(response, dict):
+            if 'choices' in response and response['choices']:
+                ai_text = response['choices'][0].get('message', {}).get('content', '')
+            elif 'content' in response:
+                ai_text = response['content']
+        # Вариант 3: Если вернулась чистая строка
+        elif isinstance(response, str):
+            ai_text = response
+        # Если объект сложный, переводим в строку и ищем текст
+        if not ai_text:
             ai_text = str(response).strip()
 
-        if ai_text.startswith("Игрок ИИ:"):
-            ai_text = ai_text.replace("Игрок ИИ:", "").strip()
-            
+        ai_text = ai_text.strip()
+        
         await asyncio.sleep(len(ai_text) * 0.04) # Имитация скорости печати
         
         ai_message = {"type": "message", "sender": "Игрок ИИ", "text": ai_text}
