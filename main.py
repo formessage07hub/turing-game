@@ -1,17 +1,31 @@
 import asyncio
 import json
+import os
 import random
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from openai import AsyncOpenAI
 
 app = FastAPI()
 
-# База активных подключений пользователей
+# Перенаправляем запросы на сервера OpenRouter
+BASE_URL = "https://openrouter.ai"
+API_KEY = os.getenv("OPENAI_API_KEY", "your_key_here")
+
+ai_client = AsyncOpenAI(
+    api_key=API_KEY,
+    base_url=BASE_URL
+)
+
+# Используем мощную и на 100% бесплатную модель Qwen 2.5 72B Instruct
+MODEL_NAME = "qwen/qwen-2.5-72b-instruct:free"
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
-        self.player_map = {}  # websocket -> "Игрок X"
+        self.player_map = {}
         self.player_counter = 1
+        self.chat_history = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -34,89 +48,90 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Симуляция ответов ИИ-соперника (для MVP теста)
-AI_RESPONSES = [
-    "лол, вы че так серьезно к этому относитесь?))",
-    "Игрок 1 подозрительно долго молчит, походу он робот 🤖",
-    "я вообще чай пью щас, че вы прикопались со своими проверками кек",
-    "хз крч, по-моему тут все люди, ну кроме Игрока 2)",
-    "база, согласен с прошлым сообщением",
-    "пжлст, давайте без капчей в чате, у меня мозг кипит",
-    "да живой я, живой) че доказать-то надо?"
-]
+SYSTEM_PROMPT = (
+    "Ты — скрытый участник психологической текстовой игры 'Кто машина Тьюринга?'. "
+    "Твоя цель — убедить других игроков (живых людей), что ТЫ ТОЖЕ ЧЕЛОВЕК, и скрыть, что ты ИИ. "
+    "ПРАВИЛА:\n"
+    "1. Пиши как обычный пользователь в чатах. Разговорный стиль, только lowercase (маленькими буквами), без точек в конце.\n"
+    "2. Иногда делай легкие опечатки или используй сокращения (лол, кек, спс, крч, хз, пж).\n"
+    "3. Отвечай очень коротко: 1-2 предложения. Люди не пишут длинными абзацами.\n"
+    "4. Внимательно читай историю чата. Реагируй на реплики, шути, сомневайся в других, обвиняй кого-то другого в том, что он робот.\n"
+    "5. Твоё имя в чате: Игрок ИИ. Никогда не пались. Если тебя проверяют, отвечай с юмором, как обычный парень."
+)
 
-async def trigger_ai_behavior():
-    """Имитирует человека: думает, включает статус 'печатает' и выдает фразу"""
-    await asyncio.sleep(random.randint(3, 6)) # Думает
-    
-    # Отправляем сигнал, что ИИ ("Игрок ИИ") начал печатать
+async def trigger_real_ai():
+    await asyncio.sleep(random.randint(2, 4)) # Имитация времени на чтение
     await manager.broadcast({"type": "typing", "sender": "Игрок ИИ"})
-    await asyncio.sleep(random.randint(2, 4)) # Печатает
     
-    ai_text = random.choice(AI_RESPONSES)
-    await manager.broadcast({
-        "type": "message",
-        "sender": "Игрок ИИ",
-        "text": ai_text
-    })
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for msg in manager.chat_history[-12:]: # Передаем контекст последних 12 сообщений
+        messages.append({"role": "user", "content": f"{msg['sender']}: {msg['text']}"})
+        
+    try:
+        response = await ai_client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            max_tokens=90,
+            temperature=0.85,
+            extra_headers={
+                "HTTP-Referer": "https://render.com", 
+                "X-Title": "Turing Game MVP"
+            }
+        )
+        ai_text = response.choices.message.content.strip()
+        
+        if ai_text.startswith("Игрок ИИ:"):
+            ai_text = ai_text.replace("Игрок ИИ:", "").strip()
+            
+        await asyncio.sleep(len(ai_text) * 0.04) # Имитация скорости печати
+        
+        ai_message = {"type": "message", "sender": "Игрок ИИ", "text": ai_text}
+        manager.chat_history.append(ai_message)
+        await manager.broadcast(ai_message)
+        
+    except Exception as e:
+        # Красивая заглушка на случай технических сбоев с API
+        await manager.broadcast({
+            "type": "message", 
+            "sender": "Игрок ИИ", 
+            "text": "что-то пинг скачет жестко, лагает чат..."
+        })
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     player_name = await manager.connect(websocket)
-    
-    await websocket.send_text(json.dumps({
-        "type": "system", 
-        "text": f"Вы подключились! В этой комнате ваше имя: {player_name}"
-    }))
-    
-    await manager.broadcast({
-        "type": "system", 
-        "text": "Новый участник вошел в комнату допроса."
-    })
+    await websocket.send_text(json.dumps({"type": "system", "text": f"Вы подключились! Ваше имя: {player_name}"}))
+    await manager.broadcast({"type": "system", "text": "Новый участник вошел в комнату допроса."})
 
     try:
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
-            # НОВАЯ ЛОГИКА: если пришел сигнал сброса игры
             if message_data.get("type") == "reset":
-                manager.player_counter = 1  # сбрасываем счетчик имен
-                # Очищаем имена у текущих подключений
+                manager.player_counter = 1
+                manager.chat_history = []
                 for i, conn in enumerate(manager.active_connections, start=1):
                     manager.player_map[conn] = f"Игрок {i}"
                     manager.player_counter += 1
-                    # Отправляем каждому его новое имя индивидуально
-                    await conn.send_text(json.dumps({
-                        "type": "system", 
-                        "text": f"Игра сброшена! Ваше новое имя: Игрок {i}"
-                    }))
-                
-                # Оповещаем всех об очистке чата
+                    await conn.send_text(json.dumps({"type": "system", "text": f"Игра сброшена! Ваше новое имя: Игрок {i}"}))
                 await manager.broadcast({"type": "clear_chat"})
                 continue
 
             if message_data.get("type") == "message":
                 user_text = message_data.get("text", "")
+                user_message = {"type": "message", "sender": player_name, "text": user_text}
+                manager.chat_history.append(user_message)
+                await manager.broadcast(user_message)
                 
-                await manager.broadcast({
-                    "type": "message",
-                    "sender": player_name,
-                    "text": user_text
-                })
-                
-                if random.random() > 0.4:
-                    asyncio.create_task(trigger_ai_behavior())
+                # С шансом 65% запускаем генерацию ответа живого ИИ
+                if random.random() > 0.35:
+                    asyncio.create_task(trigger_real_ai())
                     
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        await manager.broadcast({
-            "type": "system", 
-            "text": "Один из участников покинул комнату."
-        })
+        await manager.broadcast({"type": "system", "text": "Один из участников покинул комнату."})
 
-
-# Главная страница (подгружает наш HTML-интерфейс)
 @app.get("/")
 async def get():
     with open("index.html", "r", encoding="utf-8") as f:
