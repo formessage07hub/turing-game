@@ -90,6 +90,7 @@ async def trigger_real_ai():
         await manager.broadcast(ai_message)
         
     except Exception as e:
+        print(f"ОШИБКА API: {e}")  # ЭТА СТРОКА ВЫВЕДЕТ СБОЙ В ЛОГИ RENDER
         # Красивая заглушка на случай технических сбоев с API
         await manager.broadcast({
             "type": "message", 
